@@ -1,0 +1,118 @@
+﻿<!doctype html>
+<html>
+	<head>
+		<title>Timetable Knockout JS</title>
+	</head>
+	<body>
+		<!-- Import the css to draw the timetable-->
+		<link rel="stylesheet" href="timetable-knockoutjs.css">
+		
+		<!-- Add a div with class timetable, here is where the timetable will be drawn-->
+		<div class="timetable"></div>
+		
+		
+		<br />
+		<br />
+		<br />
+		<div>
+			<label for="txt2">Add Location</label>
+			<input type="text"  id="txt2" name="txt2" data-bind="value: txt2" />
+			<button data-bind="click: execAddSetor">Add Location</button>
+			<br />
+			<br />
+			<label for="txt1">Remove Location</label>
+			<input type="text" id="txt1" name="txt1" data-bind="value: txt1" />
+			<button data-bind="click: execRmvSetor">RMV Location</button>
+			<br />
+			<br />
+			<label for="txt3">Rename Location</label>
+			<input type="text" id="txt7" name="txt7" data-bind="value: txt7" />
+			<button data-bind="click: execRnmSetor">RNM Location</button>
+			<br />
+
+
+			<br />
+			<label for="txt3">Add Event</label>
+			<input type="text" id="txt3" name="txt3" data-bind="value: txt3" />
+			<button data-bind="click: execAddEvt">ADD EVT</button>
+			<br />
+			<br />
+			<label for="txt3">Remove Event</label>
+			<input type="text" id="txt5" name="txt5" data-bind="value: txt5" />
+			<button data-bind="click: execRmvEvt">RMV EVT</button>
+		</div>
+
+		<!-- You Have to Import Knockout.js BEFORE timetable-knockout, because we have to use some knockout types and functions-->
+		<script src="knockout.js"></script>
+		<script src="timetable-knockout.js"></script>
+
+		<script>
+			var txt1 = ko.observable();
+			var txt2 = ko.observable();
+			var txt3 = ko.observable();
+			var txt5 = ko.observable();
+			var txt7 = ko.observable();
+			
+			<!-- You have to create two observableArray on your view, one for the locations and other to the events. -->
+			var locations = ko.observableArray([]);
+			var events = ko.observableArray([]);
+
+			function execRnmSetor() {
+				<!-- Rename a location it's realy simple,  just go on your location array and use the method 
+				 --> replace from knockout, passing the name of the location to be renamed and the new name.
+				 --> Here we rename an Location r to any name that's in the input who txt7 is binding.
+				this.locations.replace("r", txt7());
+			}
+			function execAddSetor() {
+				<!-- To add a Location simple push the location name on your Location observableArray like that. -->
+				this.locations.push(txt2());
+			}
+			function execRmvSetor() {
+				<!-- Remove an Location can be made by simple use of remove method from knockout on your observableArray.-->
+				this.locations.remove(txt1());
+			}
+			function execAddEvt() {
+				<!-- To add an event you need to create an event and then push it on your Event observableArray.
+				--> First we create myEvent using the helper function createEvent inside the timetable lib, here you need to pass a few parameters:
+				--> createEvent receives in order, event Name(binded by txt3()), Location to the event be added, Start Date of the event, End Date of the Event
+				--> (Both Dates you need to pass using the Date class, just create a Date like the example above), and optionally you can pass some Options.
+				--> Now that you have created your Event, simple push it to the events observableArray.
+				var myEvent = timetable.createEvent(txt3(), 'r', new Date(dt.getFullYear(), dt.getMonth(), dt.getDay(), dt.getHours(), dt.getMinutes()), new Date(dt.getFullYear(), dt.getMonth(), dt.getDay(), dt.getHours() + 3, dt.getMinutes()), options);
+				this.events.push(myEvent);
+			}
+			<!-- Here's an example of some options you can pass. These will be added to the Event-->
+			var options = {
+				url: '#',
+				class: 'vip',
+				data: {
+					id: 4,
+					ticketType: 'VIP',
+					bind: "click: execBind"
+				},
+				color: "blue"
+			}
+			
+			function execRmvEvt() {
+				<!-- To Remove an event you need to have all the info from the event, you can get it using the helper function inside timetable class like that.
+				--> To get the event info just pass to getEventInfo the Name of the event and the Location where it belongs.
+				--> To remove the event just remove from your events observableArray using the knockout remove method.
+				var myEvent = timetable.getEventInfo(txt5(), 'r');
+				this.events.remove(myEvent);
+			}
+			
+			function execBind() {
+				<!-- In Options we passed data-bind click function as this function, so whenever an event with that option is clicked this are executed -->
+				alert("Evento clicado");
+			}
+
+			<!-- Here we create a new Date to get the actual Hour and set the scope and other things based on the time -->
+			var dt = new Date(Date.now());
+			<!-- To initialize the Timetable you need to pass your Locations and Events observableArrays -->
+			var timetable = new Timetable(locations, events);
+			timetable.setScope(dt.getHours(), dt.getHours() - 1);
+
+			<!-- Remember to applyBindings so your knockout variables can work-->
+			ko.applyBindings();
+		</script>
+	</body>	
+</html>

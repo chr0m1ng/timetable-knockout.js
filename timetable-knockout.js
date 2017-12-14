@@ -124,7 +124,8 @@ Timetable.Renderer = function (tt) {
 
             if (indexEvents) {
                 for (var i = 0; i < indexEvents.length; i++) {
-                    this.removeEvent(this.events()[indexEvents[i] - i].name, Location);
+                    var evt = this.getEventInfo(this.events()[indexEvents[i] - i].name, Location);
+                    this.events.remove(evt);
                 }
             }
 
@@ -148,11 +149,9 @@ Timetable.Renderer = function (tt) {
             return this;
         },
         createEvent: function (name, location, start, end, options) {
-
             if (!isValidTimeRange(start, end)) {
                 throw new Error('Invalid time range: ' + JSON.stringify([start, end]));
             }
-
             var optionsHasValidType = Object.prototype.toString.call(options) === '[object Object]';
 
             return ({
@@ -166,8 +165,7 @@ Timetable.Renderer = function (tt) {
         getEventInfo: function (name, location) {
             var event = {};
             this.events().forEach(function (e) {
-                if (e.name.indexOf(name) != -1 && e.location.indexOf(location) != -1) {
-                    console.log("entrou");
+                if (e.name == name && e.location == location) {
                     event = e;
                 }
             });
@@ -190,12 +188,11 @@ Timetable.Renderer = function (tt) {
                     }
                     else {
                         this.locations().pop();
-                        throw new Error("This location already exists");
+                        console.warn("This location already exists");
                     }
                     break;
                 case 0:
                     var indexLocation = getRenamedLocationIndex(this.oldLocations, this.locations());
-                    console.log(indexLocation);
                     if (!locationExistsIn(this.locations()[indexLocation], this.oldLocations)) {
                         this.renameLocation(indexLocation);
                         this.oldLocations = this.locations().slice(0);
@@ -213,18 +210,9 @@ Timetable.Renderer = function (tt) {
             }
         },
         eventSubscriber: function (value) {
-            var op = getOperationLocation(this.oldEvents, this.events());
-            switch (op) {
-                case 1:
-                    var rdr = new Timetable.Renderer(this);
-                    rdr.draw('.timetable');
-                    this.oldEvents = this.events().slice(0);
-                    break;
-                case -1:
-                    var rdr = new Timetable.Renderer(this);
-                    rdr.draw('.timetable');
-                    this.oldEvents = this.events().slice(0);
-            }
+            var rdr = new Timetable.Renderer(this);
+            rdr.draw('.timetable');
+            this.oldEvents = this.events().slice(0);
         }
     };
 
@@ -295,11 +283,29 @@ Timetable.Renderer = function (tt) {
                     appendLocationEvents(timetable.locations()[k], liNode);/**/
                 }
             }
+            function isEventDateInsideTableScope(event) {
+                var currentDate = new Date(Date.now());
+                if (currentDate.getMonth() === event.startDate.getMonth() && currentDate.getFullYear() === event.startDate.getFullYear()
+                    || currentDate.getMonth() === event.endDate.getMonth() && currentDate.getFullYear() === event.endDate.getFullYear()) {
+                    if (currentDate.getDate() === event.startDate.getDate()) {
+                        return true;
+                    }
+                    if ((currentDate.getDate() + 1) === event.startDate.getDate() && currentDate.getHours() > event.startDate.getHours()) {
+                        return true;
+                    }
+                    if (event.endDate.getDate() >= currentDate.getDate()) {
+                        return true;
+                    }
+                }
+                return false;
+            }
             function appendLocationEvents(location, node) {
                 for (var k = 0; k < timetable.events().length; k++) {
                     var event = timetable.events()[k];
                     if (event.location === location) {
-                        appendEvent(event, node);
+                        if (isEventDateInsideTableScope(event)) {
+                            appendEvent(event, node);
+                        }
                     }
                 }
             }
@@ -347,11 +353,20 @@ Timetable.Renderer = function (tt) {
             }
             function computeDurationInHours(start, end) {
                 return (end.getTime() - start.getTime()) / 1000 / 60 / 60;
+            } 
+            function getHoursSinceScope(targetDate) {
+                var currentDate = new Date(Date.now());
+                if (targetDate.getMonth() === currentDate.getMonth() && targetDate.getFullYear() === currentDate.getFullYear()) {
+                    if (currentDate.getDate() >= targetDate.getDate()) {
+                        return targetDate.getHours() - currentDate.getHours();
+                    }
+                }
+                return targetDate.getHours() - currentDate.getHours();
             }
             function computeEventBlockOffset(event) {
                 var scopeStartHours = timetable.scope.hourStart;
                 var eventStartHours = event.startDate.getHours() + (event.startDate.getMinutes() / 60);
-                var hoursBeforeEvent = getDurationHours(scopeStartHours, eventStartHours);
+                var hoursBeforeEvent = getHoursSinceScope(event.startDate);
                 return hoursBeforeEvent / scopeDurationHours * 100 + '%';
             }
 
@@ -364,6 +379,5 @@ Timetable.Renderer = function (tt) {
             appendTimetableSection(container);
         }
     };
-
 })();
 

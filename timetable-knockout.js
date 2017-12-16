@@ -7,12 +7,16 @@ var Timetable = function (locations, events) {
         hourStart: 0,
         hourEnd: 23
     };
-    this.locations = locations.extend({notify: 'always'});
+    this.locations = locations.extend({ notify: 'always' });
     this.events = events;
     this.oldLocations = [];
     this.oldEvents = [];
     this.locations.subscribe((value) => this.locationSubscriber(value));
     this.events.subscribe((value) => this.eventSubscriber(value));
+    this.displayedDate = ko.observable(new Date(Date.now()));
+    this.displayedDate().setHours(0);
+    this.displayedDate().setMinutes(0);
+    this.displayedDate.subscribe((value) => this.updateDisplayedDate(value));
 };
 
 Timetable.Renderer = function (tt) {
@@ -89,7 +93,7 @@ Timetable.Renderer = function (tt) {
             return 1;
     }
     function getRenamedLocationIndex(oldLocs, newLocs) {
-        for(var i = 0; i < oldLocs.length; i++) {
+        for (var i = 0; i < oldLocs.length; i++) {
             if (oldLocs[i] != newLocs[i])
                 return i;
         }
@@ -145,12 +149,12 @@ Timetable.Renderer = function (tt) {
 
             var rdr = new Timetable.Renderer(this);
             rdr.draw('.timetable');
-           
+
             return this;
         },
         createEvent: function (name, location, start, end, options) {
             if (!isValidTimeRange(start, end)) {
-                throw new Error('Invalid time range: ' + JSON.stringify([start, end]));
+                //console.warn('Invalid time range: ' + JSON.stringify([start, end]));
             }
             var optionsHasValidType = Object.prototype.toString.call(options) === '[object Object]';
 
@@ -172,7 +176,7 @@ Timetable.Renderer = function (tt) {
             if (event) {
                 return event;
             } else {
-                throw new Error("Event cannot be found");
+                //throw new Error("Event cannot be found");
             }
         },
         locationSubscriber: function (value) {
@@ -188,7 +192,7 @@ Timetable.Renderer = function (tt) {
                     }
                     else {
                         this.locations().pop();
-                        console.warn("This location already exists");
+                        //console.warn("This location already exists");
                     }
                     break;
                 case 0:
@@ -199,7 +203,7 @@ Timetable.Renderer = function (tt) {
                     } else {
                         var indexLocation = getRenamedLocationIndex(this.oldLocations, this.locations());
                         this.locations()[indexLocation] = this.oldLocations[indexLocation];
-                        throw new Error("This location already exists");
+                        //throw new Error("This location already exists");
                     }
                     break;
                 case -1:
@@ -213,6 +217,10 @@ Timetable.Renderer = function (tt) {
             var rdr = new Timetable.Renderer(this);
             rdr.draw('.timetable');
             this.oldEvents = this.events().slice(0);
+        },
+        updateDisplayedDate(value) {
+            var rdr = new Timetable.Renderer(this);
+            rdr.draw('.timetable');
         }
     };
 
@@ -226,7 +234,58 @@ Timetable.Renderer = function (tt) {
         var prefix = hour < 10 ? '0' : '';
         return prefix + hour + ':00';
     }
-
+    var dates = {
+        convert: function (d) {
+            // Converts the date in d to a date-object. The input can be:
+            //   a date object: returned without modification
+            //  an array      : Interpreted as [year,month,day]. NOTE: month is 0-11.
+            //   a number     : Interpreted as number of milliseconds
+            //                  since 1 Jan 1970 (a timestamp) 
+            //   a string     : Any format supported by the javascript engine, like
+            //                  "YYYY/MM/DD", "MM/DD/YYYY", "Jan 31 2009" etc.
+            //  an object     : Interpreted as an object with year, month and date
+            //                  attributes.  **NOTE** month is 0-11.
+            return (
+                d.constructor === Date ? d :
+                d.constructor === Array ? new Date(d[0], d[1], d[2]) :
+                d.constructor === Number ? new Date(d) :
+                d.constructor === String ? new Date(d) :
+                typeof d === "object" ? new Date(d.year, d.month, d.date) :
+                NaN
+            );
+        },
+        compare: function (a, b) {
+            // Compare two dates (could be of any type supported by the convert
+            // function above) and returns:
+            //  -1 : if a < b
+            //   0 : if a = b
+            //   1 : if a > b
+            // NaN : if a or b is an illegal date
+            // NOTE: The code inside isFinite does an assignment (=).
+            return (
+                isFinite(a = this.convert(a).valueOf()) &&
+                isFinite(b = this.convert(b).valueOf()) ?
+                (a > b) - (a < b) :
+                NaN
+            );
+        },
+        inRange: function (d, start, end) {
+            // Checks if date in d is between dates in start and end.
+            // Returns a boolean or NaN:
+            //    true  : if d is between start and end (inclusive)
+            //    false : if d is before start or after end
+            //    NaN   : if one or more of the dates is illegal.
+            // NOTE: The code inside isFinite does an assignment (=).
+            return (
+                 isFinite(d = this.convert(d).valueOf()) &&
+                 isFinite(start = this.convert(start).valueOf()) &&
+                 isFinite(end = this.convert(end).valueOf()) ?
+                 start <= d && d <= end :
+                 NaN
+             );
+        }
+    }
+    
     Timetable.Renderer.prototype = {
         draw: function (selector) {
             function checkContainerPrecondition(container) {
@@ -249,9 +308,38 @@ Timetable.Renderer = function (tt) {
             }
             function appendTimetableSection(container) {
                 var sectionNode = container.appendChild(document.createElement('section'));
+
                 var timeNode = sectionNode.appendChild(document.createElement('time'));
                 appendColumnHeaders(timeNode);
                 appendTimeRows(timeNode);
+            }
+            function appendDayHeader(node) {
+                var monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+                    "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+                ];
+                var btBackDay = node.appendChild(document.createElement('button'));
+                btBackDay.setAttribute("class", "btn btn-default btn-sm");
+                btBackDay.setAttribute("id", "btBackDay");
+                btBackDay.textContent = "<";
+                var headerDay = node.appendChild(document.createElement('span'));
+                headerDay.textContent = timetable.displayedDate().getDate() + " de " + monthNames[timetable.displayedDate().getMonth()] + " " + timetable.displayedDate().getFullYear();
+                var btNextDay = node.appendChild(document.createElement('button'));
+                btNextDay.setAttribute("class", "btn btn-default btn-sm");
+                btNextDay.setAttribute("id", "btNextDay");
+                btNextDay.textContent = ">";
+                btNextDay.addEventListener("click", function () {
+                    var newDate = timetable.displayedDate();
+                    newDate.setDate(newDate.getDate() + 1);
+                    timetable.displayedDate(newDate);
+                    headerDay.textContent = timetable.displayedDate().getDate() + " de " + monthNames[timetable.displayedDate().getMonth()] + " " + timetable.displayedDate().getFullYear();
+                });
+                btBackDay.addEventListener("click", function () {
+                    var newDate = timetable.displayedDate();
+                    newDate.setDate(newDate.getDate() - 1);
+                    timetable.displayedDate(newDate);
+                    headerDay.textContent = timetable.displayedDate().getDate() + " de " + monthNames[timetable.displayedDate().getMonth()] + " " + timetable.displayedDate().getFullYear();
+                });
+
             }
             function appendColumnHeaders(node) {
                 var headerNode = node.appendChild(document.createElement('header'));
@@ -284,20 +372,17 @@ Timetable.Renderer = function (tt) {
                 }
             }
             function isEventDateInsideTableScope(event) {
-                var currentDate = new Date(Date.now());
-                if (currentDate.getMonth() === event.startDate.getMonth() && currentDate.getFullYear() === event.startDate.getFullYear()
-                    || currentDate.getMonth() === event.endDate.getMonth() && currentDate.getFullYear() === event.endDate.getFullYear()) {
-                    if (currentDate.getDate() === event.startDate.getDate()) {
-                        return true;
-                    }
-                    if ((currentDate.getDate() + 1) === event.startDate.getDate() && currentDate.getHours() > event.startDate.getHours()) {
-                        return true;
-                    }
-                    if (event.endDate.getDate() >= currentDate.getDate()) {
-                        return true;
-                    }
+                if (event.startDate.getDate() === timetable.displayedDate().getDate() &&
+                   event.startDate.getMonth() === timetable.displayedDate().getMonth() &&
+                   event.startDate.getFullYear() === timetable.displayedDate().getFullYear()) {
+                    return true;
                 }
-                return false;
+                if (event.endDate.getDate() === timetable.displayedDate().getDate() &&
+                   event.endDate.getMonth() === timetable.displayedDate().getMonth() &&
+                   event.endDate.getFullYear() === timetable.displayedDate().getFullYear()) {
+                    return true;
+                }
+                return dates.inRange(timetable.displayedDate(), event.startDate, event.endDate);
             }
             function appendLocationEvents(location, node) {
                 for (var k = 0; k < timetable.events().length; k++) {
@@ -323,7 +408,29 @@ Timetable.Renderer = function (tt) {
                 var elementType = hasURL ? 'a' : 'span';
                 var aNode = node.appendChild(document.createElement(elementType));
                 var smallNode = aNode.appendChild(document.createElement('small'));
+
+                var timeDiv = document.getElementsByClassName("room-timeline")[0];
+                var smallNodeOffset = 0;
                 aNode.title = event.name;
+                smallNode.setAttribute("Id", event.name);
+
+                $(aNode).bind('mouseover', function (e) {
+                    $('#' + event.name).css({
+                        width: 0 + "%"
+                    });                
+                }).css({
+                    "padding-left": 0 + "%",
+                    "padding-right": 0 + "%",
+                }).bind('mousemove', function (e) {
+                    $('#' + event.name).css({
+                        left: e.offsetX + "px",
+                    });                    
+                }).bind('mouseleave', function (e) {
+                    $('#' + event.name).css({
+                        left: 0 + "px",
+                        width: 100 + "%",
+                    });
+                });
 
                 if (hasURL) {
                     aNode.href = event.options.url;
@@ -353,15 +460,9 @@ Timetable.Renderer = function (tt) {
             }
             function computeDurationInHours(start, end) {
                 return (end.getTime() - start.getTime()) / 1000 / 60 / 60;
-            } 
+            }
             function getHoursSinceScope(targetDate) {
-                var currentDate = new Date(Date.now());
-                if (targetDate.getMonth() === currentDate.getMonth() && targetDate.getFullYear() === currentDate.getFullYear()) {
-                    if (currentDate.getDate() >= targetDate.getDate()) {
-                        return targetDate.getHours() - currentDate.getHours();
-                    }
-                }
-                return targetDate.getHours() - currentDate.getHours();
+                return computeDurationInHours(timetable.displayedDate(), targetDate);
             }
             function computeEventBlockOffset(event) {
                 var scopeStartHours = timetable.scope.hourStart;
@@ -373,6 +474,10 @@ Timetable.Renderer = function (tt) {
             var timetable = this.timetable;
             var scopeDurationHours = getDurationHours(timetable.scope.hourStart, timetable.scope.hourEnd);
             var container = document.querySelector(selector);
+            if (container.parentNode.getElementsByTagName('divDay')[0] === undefined) {
+                var dayNode = container.parentNode.insertBefore(document.createElement('divDay'), container.parentNode.firstChild);
+                appendDayHeader(dayNode);
+            }
             checkContainerPrecondition(container);
             emptyNode(container);
             appendTimetableAside(container);

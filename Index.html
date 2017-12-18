@@ -44,7 +44,7 @@
 
 		<!-- You Have to Import Knockout.js BEFORE timetable-knockout, because we have to use some knockout types and functions-->
 		<script src="knockout.js"></script>
-		<script src="jquery-3.1.1.min.js"></script>
+		<script src="jquery-3.2.1.min.js"></script>
 		<script src="timetable-knockout.js"></script>
 
 		<script>
@@ -78,7 +78,7 @@
 				--> createEvent receives in order, event Name(binded by txt3()), Location to the event be added, Start Date of the event, End Date of the Event
 				--> (Both Dates you need to pass using the Date class, just create a Date like the example above), and optionally you can pass some Options.
 				--> Now that you have created your Event, simple push it to the events observableArray.
-				var myEvent = timetable.createEvent(txt3(), 'r', new Date(dt.getFullYear(), dt.getMonth(), dt.getDate(), dt.getHours(), dt.getMinutes()), new Date(dt.getFullYear(), dt.getMonth(), dt.getDate(), dt.getHours() + 3, dt.getMinutes()), options);
+				var myEvent = timetable.createEvent(txt3(), 'r', new Date(dt.getFullYear(), dt.getMonth(), dt.getDate(), dt.getHours(), dt.getMinutes()), new Date(dt.getFullYear(), dt.getMonth(), dt.getDate() + 1, dt.getHours() + 3, dt.getMinutes()), options);
 				this.events.push(myEvent);
 			}
 			<!-- Here's an example of some options you can pass. These will be added to the Event-->
